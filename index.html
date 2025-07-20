@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Custom HLS Video Player with Subtitle Editor</title>
+    <style>
+        /* Inline CSS */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        #header {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #1e1e1e;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        #header img {
+            height: 50px;
+            margin-right: 20px;
+        }
+        #header h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+        #mainContent {
+            padding: 20px;
+        }
+        #videoContainer {
+            position: sticky;
+            top: 70px; /* Height of header plus some margin */
+            z-index: 900;
+            background-color: #121212;
+            padding-bottom: 20px;
+        }
+        #videoPlayer {
+            width: 100%;
+            max-width: 800px;
+            max-height: 450px;
+            background-color: #000;
+            display: block;
+            margin: 0 auto;
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+            font-size: 11px; /* Set font size to 11px */
+        }
+        #controls label {
+            font-size: 11px; /* Set font size to 11px */
+            margin-right: 5px;
+        }
+        #controls input[type="number"],
+        #controls input[type="text"] {
+            padding: 6px;
+            font-size: 11px; /* Set font size to 11px */
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            margin: 5px;
+        }
+        #controls input[type="number"] {
+            width: 60px;
+            text-align: center;
+        }
+        #controls input[type="text"] {
+            width: 60%;
+            max-width: 800px; /* Align with video width */
+        }
+        #controls button {
+            padding: 6px 12px;
+            font-size: 11px; /* Set font size to 11px */
+            margin: 5px;
+            background-color: #333;
+            color: #e0e0e0;
+            border: none;
+            cursor: pointer;
+        }
+        #controls button:hover {
+            background-color: #444;
+        }
+        #subtitleEditor {
+            width: 100%;
+            max-width: 1200px; /* Increased max-width */
+            margin: 20px auto;
+            position: relative;
+        }
+        #subtitleEditorHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 70px; /* Adjust based on header height */
+            background-color: #121212;
+            z-index: 800;
+            padding: 10px 0;
+        }
+        #subtitleEditor h2 {
+            display: inline-block;
+            margin: 0;
+        }
+        #subtitleEditor #subtitleFileName {
+            margin-left: 10px;
+            font-size: 11px; /* Set font size to 11px */
+            color: #aaa;
+            word-break: break-all; /* Prevent truncation */
+        }
+        #subtitleEditor .save-buttons {
+            display: flex;
+            align-items: center;
+        }
+        #subtitleEditor .save-buttons button {
+            padding: 6px 12px;
+            font-size: 11px; /* Set font size to 11px */
+            background-color: #333;
+            color: #e0e0e0;
+            border: none;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        #subtitleEditor .save-buttons button:hover {
+            background-color: #444;
+        }
+        #toolsSection {
+            margin-top: 10px;
+            font-size: 11px; /* Set font size to 11px */
+        }
+        #toolsTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #toolsTable th, #toolsTable td {
+            border: none;
+            padding: 4px;
+            text-align: left;
+        }
+        #toolsTable th {
+            font-weight: bold;
+            font-size: 11px;
+        }
+        #toolsTable td {
+            font-size: 11px;
+        }
+        #toolsTable input[type="text"] {
+            width: 150px;
+            max-width: 25ch; /* Limit to 25 characters */
+            padding: 4px;
+            font-size: 11px;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            margin-right: 5px;
+        }
+        #toolsTable button {
+            padding: 4px 8px;
+            font-size: 11px;
+            background-color: #333;
+            color: #e0e0e0;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        #toolsTable button:hover {
+            background-color: #444;
+        }
+        #subtitleEditor table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        #subtitleEditor th, #subtitleEditor td {
+            border: 1px solid #333;
+            padding: 6px;
+            text-align: left;
+            word-break: break-word;
+            min-width: 100px; /* Ensures columns are wide enough */
+            font-size: 11px; /* Set font size to 11px */
+        }
+        #subtitleEditor th.timecode, #subtitleEditor td.timecode {
+            min-width: 150px; /* Ensures timecode columns are at least 15 characters wide */
+        }
+        #subtitleEditor th {
+            background-color: #1e1e1e;
+            position: sticky;
+            top: 100px; /* Adjust based on header height */
+            z-index: 700;
+        }
+        #subtitleEditor tr:nth-child(even) {
+            background-color: #1a1a1a;
+        }
+        #subtitleEditor tr:hover {
+            background-color: #333;
+        }
+        #subtitleEditor tr.active {
+            background-color: #555 !important;
+        }
+        #subtitleEditor td .highlight {
+            background-color: yellow;
+            color: black;
+        }
+        #subtitleEditor input[type="text"] {
+            width: 100%;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            padding: 4px;
+            font-size: 11px; /* Set font size to 11px */
+        }
+        /* Subtitle styling using ::cue */
+        ::cue {
+            font-size: 24px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            text-align: center;
+            line-height: 1.5;
+        }
+        /* Scrollbar styling (optional) */
+        #subtitleEditor::-webkit-scrollbar {
+            width: 8px;
+        }
+        #subtitleEditor::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        #subtitleEditor::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+        #subtitleEditor::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+        /* TTML Metadata Table */
+        #metadataTable {
+            font-size: 10px;
+            margin-top: 10px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #metadataTable th, #metadataTable td {
+            border: 1px solid #333;
+            padding: 4px;
+            text-align: left;
+        }
+        #metadataTable th {
+            background-color: #1e1e1e;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <img src="blu.png" alt="Logo">
+        <h1>4 Subtitle Player and Editor</h1>
+    </div>
+
+    <div id="mainContent">
+        <div id="videoContainer">
+            <video id="videoPlayer" controls>
+                <!-- Subtitle track will be added here -->
+            </video>
+            <div id="controls">
+                <label for="frameRate">FPS:</label>
+                <input type="number" id="frameRate" value="25" min="1" max="120" step="1">
+                <input type="text" id="videoUrl" placeholder="Enter .m3u8 URL">
+                <button id="loadVideoButton">Load Video</button>
+            </div>
+            <div id="controls">
+                <label for="subtitleInput">Load Subtitles (.srt, .ttml, .vtt):</label>
+                <input type="file" id="subtitleInput" accept=".srt,.ttml,.vtt">
+                <span id="subtitleFileName"></span> <!-- Display full subtitle file name -->
+            </div>
+        </div>
+
+        <div id="subtitleEditor">
+            <div id="subtitleEditorHeader">
+                <div>
+                    <h2>Subtitle Editor</h2>
+                </div>
+                <div class="save-buttons">
+                    <button id="saveButton">Save</button>
+                    <button id="saveAsButton">Save As</button>
+                </div>
+            </div>
+            <!-- Tools Section -->
+            <div id="toolsSection">
+                <table id="toolsTable">
+                    <tr>
+                        <th colspan="2">Tools</th>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label for="findText">Find:</label>
+                            <input type="text" id="findText" maxlength="25">
+                            <label for="replaceText">Replace with:</label>
+                            <input type="text" id="replaceText" maxlength="25">
+                            <button id="findButton">Find</button>
+                            <button id="replaceButton">Replace</button>
+                            <button id="undoButton">Undo</button>
+                            <span id="findCount"></span>
+                        </td>
+                        <td>
+                            <button id="adjustHourMinus">Adjust Hour -1</button>
+                            <button id="adjustHourPlus">Adjust Hour +1</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <!-- TTML Metadata Table -->
+            <div id="metadataSection"></div>
+            <table>
+                <thead id="subtitleTableHead">
+                    <!-- Table headers will be added here -->
+                </thead>
+                <tbody id="subtitleTableBody">
+                    <!-- Subtitle entries will be added here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Include hls.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <!-- Inline JavaScript -->
+    <script>
+        // Get references to HTML elements
+        const video = document.getElementById('videoPlayer');
+        const videoUrlInput = document.getElementById('videoUrl');
+        const frameRateInput = document.getElementById('frameRate');
+        const loadVideoButton = document.getElementById('loadVideoButton');
+        const subtitleInput = document.getElementById('subtitleInput');
+        const subtitleEditor = document.getElementById('subtitleEditor');
+        const metadataSection = document.getElementById('metadataSection');
+        const subtitleTableHead = document.getElementById('subtitleTableHead');
+        const subtitleTableBody = document.getElementById('subtitleTableBody');
+        const saveButton = document.getElementById('saveButton');
+        const saveAsButton = document.getElementById('saveAsButton');
+        const subtitleFileNameDisplay = document.getElementById('subtitleFileName');
+        const findTextInput = document.getElementById('findText');
+        const replaceTextInput = document.getElementById('replaceText');
+        const findButton = document.getElementById('findButton');
+        const replaceButton = document.getElementById('replaceButton');
+        const undoButton = document.getElementById('undoButton');
+        const findCountDisplay = document.getElementById('findCount');
+        const adjustHourMinusButton = document.getElementById('adjustHourMinus');
+        const adjustHourPlusButton = document.getElementById('adjustHourPlus');
+
+        let hls;
+        let subtitles = [];
+        let currentSubtitleIndex = -1;
+        let subtitleFileName = '';
+        let subtitleFormat = 'srt'; // 'srt', 'ttml', or 'vtt'
+        let ttmlMetadata = {};
+        let previousSubtitles = []; // For undo functionality
+
+        // Function to load video from URL
+        loadVideoButton.addEventListener('click', function() {
+            const videoSrc = videoUrlInput.value.trim();
+            if (videoSrc) {
+                loadVideo(videoSrc);
+            } else {
+                alert('Please enter a valid .m3u8 URL.');
+            }
+        });
+
+        function loadVideo(videoSrc) {
+            if (Hls.isSupported()) {
+                if (hls) {
+                    hls.destroy();
+                }
+                hls = new Hls();
+                hls.loadSource(videoSrc);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = videoSrc;
+                video.addEventListener('loadedmetadata', function () {
+                    video.play();
+                });
+            } else {
+                alert('Your browser does not support HLS playback.');
+            }
+        }
+
+        // Load and parse subtitles
+        subtitleInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                subtitleFileName = file.name;
+                subtitleFileNameDisplay.textContent = subtitleFileName; // Display full file name
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    if (fileExtension === 'srt') {
+                        subtitleFormat = 'srt';
+                        subtitles = parseSRT(content);
+                    } else if (fileExtension === 'ttml') {
+                        subtitleFormat = 'ttml';
+                        subtitles = parseTTML(content); // Ensure TTML parsing is triggered here
+                    } else if (fileExtension === 'vtt') {
+                        subtitleFormat = 'vtt';
+                        subtitles = parseVTT(content);
+                    } else {
+                        alert('Unsupported subtitle format. Please upload a .srt, .ttml, or .vtt file.');
+                        return;
+                    }
+
+                    if (subtitles.length > 0) {
+                        updateSubtitleEditor();
+                        addSubtitleTrack();
+                        subtitleEditor.style.display = 'block';
+                    } else {
+                        alert('Failed to parse the subtitle file. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Parse SRT subtitles
+        function parseSRT(data) {
+            const srtArray = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n\n');
+            const result = [];
+            for (let i = 0; i < srtArray.length; i++) {
+                const srtEntry = srtArray[i].split('\n');
+                if (srtEntry.length >= 2) {
+                    let index = srtEntry[0];
+                    let time = srtEntry[1];
+                    let text = srtEntry.slice(2).join('\n');
+
+                    // Fix for cases where index is omitted
+                    if (!isNaN(parseInt(index))) {
+                        index = parseInt(index);
+                    } else {
+                        index = i + 1; // Assign sequential index
+                        time = srtEntry[0];
+                        text = srtEntry.slice(1).join('\n');
+                    }
+
+                    const timecodes = time.split(' --> ');
+                    if (timecodes.length === 2) {
+                        const startTime = timecodes[0].trim();
+                        const endTime = timecodes[1].trim();
+                        result.push({
+                            index: index,
+                            startTime: startTime,
+                            endTime: endTime,
+                            text: text.trim()
+                        });
+                    }
+                }
+            }
+            return result;
+        }
+
+        // Parse TTML subtitles
+        function parseTTML(data) {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(data, "application/xml");
+    const body = xmlDoc.getElementsByTagName('body')[0];
+    const result = [];
+
+    if (!body) {
+        console.error("No TTML body found in the file.");
+        return result;
+    }
+
+    // Parse Metadata from <head> section
+    ttmlMetadata = {
+        language: xmlDoc.documentElement.getAttribute('xml:lang') || '',
+        styles: [],
+        regions: []
+    };
+
+    const stylingElement = xmlDoc.getElementsByTagName('styling')[0];
+    if (stylingElement) {
+        const styleElements = stylingElement.getElementsByTagName('style');
+        for (let i = 0; i < styleElements.length; i++) {
+            const style = styleElements[i];
+            const attributes = {};
+            for (let j = 0; j < style.attributes.length; j++) {
+                const attr = style.attributes[j];
+                attributes[attr.name] = attr.value;
+            }
+            ttmlMetadata.styles.push(attributes);
+        }
+    }
+
+    const layoutElement = xmlDoc.getElementsByTagName('layout')[0];
+    if (layoutElement) {
+        const regionElements = layoutElement.getElementsByTagName('region');
+        for (let i = 0; i < regionElements.length; i++) {
+            const region = regionElements[i];
+            const attributes = {};
+            for (let j = 0; j < region.attributes.length; j++) {
+                const attr = region.attributes[j];
+                attributes[attr.name] = attr.value;
+            }
+            ttmlMetadata.regions.push(attributes);
+        }
+    }
+
+    // Parse Subtitle Entries from <body> section
+    const div = body.getElementsByTagName('div')[0];
+    const pElements = div ? div.getElementsByTagName('p') : [];
+    for (let i = 0; i < pElements.length; i++) {
+        const p = pElements[i];
+        const startTime = p.getAttribute('begin');
+        const endTime = p.getAttribute('end');
+        const duration = p.getAttribute('dur') || calculateDuration(startTime, endTime);
+        const style = p.getAttribute('style');
+        const region = p.getAttribute('region');
+        const lang = p.getAttribute('xml:lang') || p.getAttribute('lang');
+        const textContent = p.textContent.trim();
+
+        // Additional attributes like text color, font size, etc.
+        const additionalAttributes = getAdditionalAttributes(p);
+
+        result.push({
+            index: i + 1, // NO column
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
+            text: textContent,
+            styleId: style,
+            regionId: region,
+            language: lang,
+            additionalAttributes: additionalAttributes
+        });
+    }
+
+    return result;
+}
+
+function calculateDuration(start, end) {
+    const startTime = parseTime(start);
+    const endTime = parseTime(end);
+    return endTime && startTime ? (endTime - startTime).toFixed(3) : '';
+}
+
+function parseTime(timeString) {
+    const parts = timeString.split(':');
+    const hours = parseFloat(parts[0]);
+    const minutes = parseFloat(parts[1]);
+    const seconds = parseFloat(parts[2]);
+    return hours * 3600 + minutes * 60 + seconds;
+}
+
+function getAdditionalAttributes(pElement) {
+    const additionalAttributes = {};
+    const supportedAttributes = ['tts:color', 'tts:fontSize', 'tts:fontFamily', 'tts:fontWeight'];
+    supportedAttributes.forEach(attr => {
+        if (pElement.hasAttribute(attr)) {
+            additionalAttributes[attr] = pElement.getAttribute(attr);
+        }
+    });
+    return additionalAttributes;
+}
+
+
+// Enhanced VTT parsing function with separate TEXT column handling
+function parseVTT(data) {
+    const lines = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const result = [];
+    let i = 0;
+
+    console.log("Starting VTT Parsing");
+
+    // Skip "WEBVTT" line and any empty lines
+    if (lines[i].startsWith('WEBVTT')) {
+        console.log("Found WEBVTT header");
+        i++;
+        while (lines[i] === '') {
+            i++;
+        }
+    }
+
+    // Parse each subtitle cue
+    while (i < lines.length) {
+        let timeLine = lines[i];
+        let textLines = [];
+        let settings = {};
+
+        // Check if the line contains "-->", marking a timecode line
+        if (timeLine.includes('-->')) {
+            const timeAndSettings = timeLine.split(' ');
+            const timecodes = timeAndSettings.slice(0, 3).join(' ').split(' --> '); // Group first 3 items for timecodes
+
+            // Parse TC IN and TC OUT
+            if (timecodes.length === 2) {
+                const startTime = timecodes[0].trim();
+                const endTime = timecodes[1].trim();
+                console.log(`Parsed timecodes: Start = ${startTime}, End = ${endTime}`);
+
+                // Process optional settings (line, position, align) following TC OUT
+                for (let j = 2; j < timeAndSettings.length; j++) {
+                    const setting = timeAndSettings[j];
+                    const [key, value] = setting.split(':');
+                    if (key && value) {
+                        settings[key.toLowerCase()] = value.trim();
+                        console.log(`Parsed setting: ${key.toLowerCase()} = ${value.trim()}`);
+                    }
+                }
+
+                i++;
+                // Collect subtitle text lines and preserve line breaks
+                while (i < lines.length && lines[i] !== '') {
+                    textLines.push(lines[i]);
+                    i++;
+                }
+
+                // Add parsed subtitle to the result array with each component as its own column
+                result.push({
+                    startTime: startTime,
+                    endTime: endTime,
+                    text: textLines.join('\n'), // Preserve multiline text for TEXT column
+                    line: settings['line'] || '',
+                    position: settings['position'] || '',
+                    align: settings['align'] || ''
+                });
+
+                console.log("Added subtitle:", {
+                    startTime: startTime,
+                    endTime: endTime,
+                    text: textLines.join('\n'),
+                    line: settings['line'] || '',
+                    position: settings['position'] || '',
+                    align: settings['align'] || ''
+                });
+            } else {
+                console.warn(`Invalid timecode line at index ${i}: ${timeLine}`);
+                i++;
+            }
+        } else {
+            console.warn(`Skipping non-timecode line at index ${i}: ${timeLine}`);
+            i++;
+        }
+    }
+
+    console.log("Finished VTT Parsing", result);
+    return result;
+}
+// Function to update Subtitle Editor Table based on format
+    // Function to update Subtitle Editor Table based on format
+function updateSubtitleEditor() {
+    subtitleTableBody.innerHTML = '';
+    subtitleTableHead.innerHTML = '';
+    metadataSection.innerHTML = '';
+
+    if (subtitleFormat === 'srt') {
+        // SRT Table Headers with NO column
+        subtitleTableHead.innerHTML = `
+            <tr>
+                <th>No</th>
+                <th class="timecode">TC IN</th>
+                <th class="timecode">TC OUT</th>
+                <th>Text</th>
+            </tr>
+        `;
+
+        subtitles.forEach((subtitle, i) => {
+            const row = document.createElement('tr');
+            row.dataset.index = i;
+
+            const indexCell = document.createElement('td');
+            indexCell.textContent = subtitle.index;
+
+            const startTimeCell = document.createElement('td');
+            startTimeCell.textContent = subtitle.startTime;
+            startTimeCell.classList.add('timecode');
+            startTimeCell.contentEditable = false;
+
+            const endTimeCell = document.createElement('td');
+            endTimeCell.textContent = subtitle.endTime;
+            endTimeCell.classList.add('timecode');
+            endTimeCell.contentEditable = false;
+
+            const textCell = document.createElement('td');
+            textCell.innerHTML = subtitle.text;
+            textCell.contentEditable = true;
+
+            row.appendChild(indexCell);
+            row.appendChild(startTimeCell);
+            row.appendChild(endTimeCell);
+            row.appendChild(textCell);
+
+            addRowEventListeners(row);
+            subtitleTableBody.appendChild(row);
+        });
+    } else if (subtitleFormat === 'vtt') {
+        // VTT Table Headers with NO column
+        subtitleTableHead.innerHTML = `
+            <tr>
+                <th>No</th>
+                <th class="timecode">TC IN</th>
+                <th class="timecode">TC OUT</th>
+                <th>Text</th>
+                <th>Line</th>
+                <th>Position</th>
+                <th>Align</th>
+            </tr>
+        `;
+
+        subtitles.forEach((subtitle, i) => {
+            const row = document.createElement('tr');
+            row.dataset.index = i;
+
+            const countCell = document.createElement('td');
+            countCell.textContent = i + 1; // Incremental count for NO column
+            countCell.contentEditable = false;
+
+            const startTimeCell = document.createElement('td');
+            startTimeCell.textContent = subtitle.startTime;
+            startTimeCell.classList.add('timecode');
+            startTimeCell.contentEditable = false;
+
+            const endTimeCell = document.createElement('td');
+            endTimeCell.textContent = subtitle.endTime;
+            endTimeCell.classList.add('timecode');
+            endTimeCell.contentEditable = false;
+
+            const textCell = document.createElement('td');
+            textCell.innerHTML = subtitle.text;
+            textCell.contentEditable = true;
+
+            const lineCell = document.createElement('td');
+            lineCell.textContent = subtitle.line || '';
+            lineCell.contentEditable = false;
+
+            const positionCell = document.createElement('td');
+            positionCell.textContent = subtitle.position || '';
+            positionCell.contentEditable = false;
+
+            const alignCell = document.createElement('td');
+            alignCell.textContent = subtitle.align || '';
+            alignCell.contentEditable = false;
+
+            row.appendChild(countCell);
+            row.appendChild(startTimeCell);
+            row.appendChild(endTimeCell);
+            row.appendChild(textCell);
+            row.appendChild(lineCell);
+            row.appendChild(positionCell);
+            row.appendChild(alignCell);
+
+            addRowEventListeners(row);
+            subtitleTableBody.appendChild(row);
+        });
+    } else if (subtitleFormat === 'ttml') {
+        // TTML Subtitle Table Headers
+        subtitleTableHead.innerHTML = `
+            <tr>
+                <th>No</th>
+                <th class="timecode">TC IN</th>
+                <th class="timecode">TC OUT</th>
+                <th>Text</th>
+                <th>Duration</th>
+                <th>Style ID</th>
+                <th>Region ID</th>
+                <th>Language</th>
+                <th>Additional Attributes</th>
+            </tr>
+        `;
+
+        subtitles.forEach((subtitle, i) => {
+            const row = document.createElement('tr');
+            row.dataset.index = i;
+
+            const indexCell = document.createElement('td');
+            indexCell.textContent = subtitle.index;
+
+            const startTimeCell = document.createElement('td');
+            startTimeCell.textContent = subtitle.startTime;
+            startTimeCell.classList.add('timecode');
+            startTimeCell.contentEditable = false;
+
+            const endTimeCell = document.createElement('td');
+            endTimeCell.textContent = subtitle.endTime;
+            endTimeCell.classList.add('timecode');
+            endTimeCell.contentEditable = false;
+
+            const textCell = document.createElement('td');
+            textCell.innerHTML = subtitle.text;
+            textCell.contentEditable = true;
+
+            const durationCell = document.createElement('td');
+            durationCell.textContent = subtitle.duration;
+            durationCell.contentEditable = false;
+
+            const styleIdCell = document.createElement('td');
+            styleIdCell.textContent = subtitle.styleId || '';
+            styleIdCell.contentEditable = false;
+
+            const regionIdCell = document.createElement('td');
+            regionIdCell.textContent = subtitle.regionId || '';
+            regionIdCell.contentEditable = false;
+
+            const languageCell = document.createElement('td');
+            languageCell.textContent = subtitle.language || '';
+            languageCell.contentEditable = false;
+
+            const additionalAttributesCell = document.createElement('td');
+            additionalAttributesCell.textContent = JSON.stringify(subtitle.additionalAttributes);
+            additionalAttributesCell.contentEditable = false;
+
+            row.appendChild(indexCell);
+            row.appendChild(startTimeCell);
+            row.appendChild(endTimeCell);
+            row.appendChild(textCell);
+            row.appendChild(durationCell);
+            row.appendChild(styleIdCell);
+            row.appendChild(regionIdCell);
+            row.appendChild(languageCell);
+            row.appendChild(additionalAttributesCell);
+
+            addRowEventListeners(row);
+            subtitleTableBody.appendChild(row);
+        });
+
+        // Metadata Table for TTML
+        metadataSection.innerHTML = `
+            <h3>Metadata</h3>
+            <table>
+                <tr><th>Language</th><td>${ttmlMetadata.language || 'N/A'}</td></tr>
+                <tr><th>Styles</th><td>${JSON.stringify(ttmlMetadata.styles)}</td></tr>
+                <tr><th>Regions</th><td>${JSON.stringify(ttmlMetadata.regions)}</td></tr>
+            </table>
+        `;
+    }
+}
+
+
+        function displayTTMLMetadata() {
+            const metadataHTML = `
+                <table id="metadataTable">
+                    <tr>
+                        <th>Language</th>
+                        <td>${ttmlMetadata.language || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <th>Styles</th>
+                        <td>${JSON.stringify(ttmlMetadata.styles)}</td>
+                    </tr>
+                    <tr>
+                        <th>Regions</th>
+                        <td>${JSON.stringify(ttmlMetadata.regions)}</td>
+                    </tr>
+                </table>
+            `;
+            metadataSection.innerHTML = metadataHTML;
+        }
+
+        function addRowEventListeners(row) {
+            // Click event to seek video
+            row.addEventListener('click', function(event) {
+                const index = parseInt(this.dataset.index);
+                const target = event.target;
+                if (target.classList.contains('timecode')) {
+                    const timeString = target.textContent.trim();
+                    const timeInSeconds = parseTimeString(timeString);
+                    if (timeInSeconds !== null) {
+                        video.currentTime = timeInSeconds;
+                    }
+                }
+            });
+
+            // Double-click event to edit
+            row.addEventListener('dblclick', function(event) {
+                const target = event.target;
+                if (target.tagName.toLowerCase() === 'td') {
+                    target.contentEditable = true;
+                    target.focus();
+                }
+            });
+
+            // Blur event to save changes
+            row.addEventListener('focusout', function(event) {
+                const index = parseInt(this.dataset.index);
+                const cells = this.cells;
+
+                if (subtitleFormat === 'srt') {
+                    subtitles[index].startTime = cells[1].textContent.trim();
+                    subtitles[index].endTime = cells[2].textContent.trim();
+                    subtitles[index].text = cells[3].textContent.trim();
+                } else if (subtitleFormat === 'ttml') {
+                    subtitles[index].startTime = cells[0].textContent.trim();
+                    subtitles[index].endTime = cells[1].textContent.trim();
+                    subtitles[index].duration = cells[2].textContent.trim();
+                    subtitles[index].text = cells[3].textContent.trim();
+                    subtitles[index].styleId = cells[4].textContent.trim();
+                    subtitles[index].regionId = cells[5].textContent.trim();
+                    subtitles[index].language = cells[6].textContent.trim();
+                    try {
+                        subtitles[index].additionalAttributes = JSON.parse(cells[7].textContent.trim());
+                    } catch (e) {
+                        subtitles[index].additionalAttributes = {};
+                    }
+                } else if (subtitleFormat === 'vtt') {
+                    subtitles[index].startTime = cells[1].textContent.trim();
+                    subtitles[index].endTime = cells[2].textContent.trim();
+                    subtitles[index].text = cells[3].textContent.trim();
+                    subtitles[index].line = cells[4].textContent.trim();
+                    subtitles[index].position = cells[5].textContent.trim();
+                    subtitles[index].align = cells[6].textContent.trim();
+                }
+                updateSubtitleTrack();
+            });
+        }
+
+// Add subtitle track to video, ensuring TEXT appears over the video with line breaks
+function addSubtitleTrack() {
+    const vttContent = generateVTTContent();
+    const existingTrack = video.querySelector('track');
+    if (existingTrack) {
+        video.removeChild(existingTrack);
+    }
+
+    const blob = new Blob([vttContent], { type: 'text/vtt' });
+    const url = URL.createObjectURL(blob);
+
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = 'Subtitles';
+    track.srclang = 'en';
+    track.src = url;
+    track.default = true;
+    video.appendChild(track);
+}
+
+// Generate VTT content from parsed subtitles array, preserving line breaks in TEXT
+function generateVTTContent() {
+    let vttData = 'WEBVTT\n\n';
+
+    subtitles.forEach(subtitle => {
+        let cueSettings = '';
+        if (subtitle.line) cueSettings += ` line:${subtitle.line}`;
+        if (subtitle.position) cueSettings += ` position:${subtitle.position}`;
+        if (subtitle.align) cueSettings += ` align:${subtitle.align}`;
+
+        vttData += `${subtitle.startTime} --> ${subtitle.endTime}${cueSettings}\n`;
+        
+        // Join text lines with line breaks for multiline support
+        vttData += `${subtitle.text.replace(/\n/g, '\n')}\n\n`;
+    });
+
+    return vttData;
+}
+
+
+        // Generate VTT content from subtitles array
+        function generateVTTContent() {
+            let vttData = 'WEBVTT\n\n';
+
+            if (subtitleFormat === 'srt') {
+                subtitles.forEach(subtitle => {
+                    // VTT cues do not require an index number
+                    vttData += `${subtitle.startTime.replace(',', '.')} --> ${subtitle.endTime.replace(',', '.')}\n`;
+                    vttData += `${subtitle.text}\n\n`;
+                });
+            } else if (subtitleFormat === 'ttml') {
+                subtitles.forEach(subtitle => {
+                    const start = convertTTMLTimeToSeconds(subtitle.startTime);
+                    const end = convertTTMLTimeToSeconds(subtitle.endTime);
+                    if (start !== null && end !== null) {
+                        const startTime = formatSecondsToVTTTime(start);
+                        const endTime = formatSecondsToVTTTime(end);
+                        vttData += `${startTime} --> ${endTime}\n`;
+                        vttData += `${subtitle.text}\n\n`;
+                    }
+                });
+            } else if (subtitleFormat === 'vtt') {
+                subtitles.forEach(subtitle => {
+                    let cueSettings = '';
+                    if (subtitle.line) cueSettings += ` line:${subtitle.line}`;
+                    if (subtitle.position) cueSettings += ` position:${subtitle.position}`;
+                    if (subtitle.align) cueSettings += ` align:${subtitle.align}`;
+
+                    vttData += `${subtitle.startTime} --> ${subtitle.endTime}${cueSettings}\n`;
+                    vttData += `${subtitle.text}\n\n`;
+                });
+            }
+
+            return vttData;
+        }
+
+        // Update subtitle track after editing
+        function updateSubtitleTrack() {
+            addSubtitleTrack();
+        }
+
+        // Video timeupdate event to highlight current subtitle
+        video.addEventListener('timeupdate', function() {
+            const currentTime = video.currentTime;
+            let foundIndex = -1;
+            for (let i = 0; i < subtitles.length; i++) {
+                const startTimeStr = subtitles[i].startTime;
+                const endTimeStr = subtitles[i].endTime;
+                const start = parseTimeString(startTimeStr);
+                const end = parseTimeString(endTimeStr);
+                if (start !== null && end !== null) {
+                    if (currentTime >= start && currentTime <= end) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (foundIndex !== currentSubtitleIndex) {
+                currentSubtitleIndex = foundIndex;
+                highlightCurrentSubtitle();
+            }
+        });
+
+        // Highlight current subtitle in the table
+        function highlightCurrentSubtitle() {
+            const rows = subtitleTableBody.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                if (index === currentSubtitleIndex) {
+                    row.classList.add('active');
+                    // Scroll into view
+                    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    row.classList.remove('active');
+                }
+            });
+        }
+
+        // Parse time strings
+        function parseTimeString(timeString) {
+            if (!timeString) return null;
+            if (subtitleFormat === 'srt' || subtitleFormat === 'vtt') {
+                return timeStringToSeconds(timeString);
+            } else if (subtitleFormat === 'ttml') {
+                return convertTTMLTimeToSeconds(timeString);
+            }
+            return null;
+        }
+
+        // Convert SRT/VTT time string to seconds
+        function timeStringToSeconds(timeString) {
+            const timeParts = timeString.split(':');
+            let seconds = 0;
+
+            if (timeParts.length === 3) {
+                const hours = parseInt(timeParts[0]);
+                const minutes = parseInt(timeParts[1]);
+                const secParts = timeParts[2].split(/[.,]/);
+                const secs = parseInt(secParts[0]);
+                const millis = parseInt(secParts[1]) || 0;
+                seconds = hours * 3600 + minutes * 60 + secs + millis / 1000;
+                return seconds;
+            } else {
+                return null;
+            }
+        }
+
+        // Convert TTML time string to seconds
+        function convertTTMLTimeToSeconds(ttmlTime) {
+            if (!ttmlTime) return null;
+            let time = 0;
+            const timeFormat1 = /^(\d+):(\d{2}):(\d{2})(\.\d+)?$/; // hh:mm:ss.ms
+            const timeFormat2 = /^(\d+(\.\d+)?)(h|m|s|ms)$/; // time in hours, minutes, seconds, milliseconds
+
+            let match = ttmlTime.match(timeFormat1);
+            if (match) {
+                time = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
+                if (match[4]) {
+                    time += parseFloat(match[4]);
+                }
+            } else {
+                match = ttmlTime.match(timeFormat2);
+                if (match) {
+                    const value = parseFloat(match[1]);
+                    const unit = match[3];
+                    if (unit === 'h') time = value * 3600;
+                    else if (unit === 'm') time = value * 60;
+                    else if (unit === 's') time = value;
+                    else if (unit === 'ms') time = value / 1000;
+                } else {
+                    return null;
+                }
+            }
+            return time;
+        }
+
+        // Format seconds to VTT time string
+        function formatSecondsToVTTTime(timeInSeconds) {
+            const hours = Math.floor(timeInSeconds / 3600);
+            const minutes = Math.floor((timeInSeconds % 3600) / 60);
+            const seconds = (timeInSeconds % 60).toFixed(3);
+
+            return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        function pad(num) {
+            return String(num).padStart(2, '0');
+        }
+
+        // Save subtitles to file
+        saveButton.addEventListener('click', function() {
+            if (subtitleFileName) {
+                saveSubtitles(subtitleFileName);
+            } else {
+                saveSubtitles('subtitles.' + subtitleFormat);
+            }
+        });
+
+        saveAsButton.addEventListener('click', function() {
+            const newFileName = prompt('Enter file name', 'subtitles.' + subtitleFormat);
+            if (newFileName) {
+                saveSubtitles(newFileName);
+            }
+        });
+
+        function saveSubtitles(fileName) {
+            let content = '';
+            if (subtitleFormat === 'srt') {
+                content = generateSRTContent();
+            } else if (subtitleFormat === 'ttml') {
+                content = generateTTMLContent();
+            } else if (subtitleFormat === 'vtt') {
+                content = generateVTTFileContent();
+            }
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            // Create a temporary link to trigger download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Generate SRT content from subtitles array
+        function generateSRTContent() {
+            let srtData = '';
+            subtitles.forEach(subtitle => {
+                srtData += `${subtitle.index}\n`;
+                srtData += `${subtitle.startTime} --> ${subtitle.endTime}\n`;
+                srtData += `${subtitle.text}\n\n`;
+            });
+            return srtData;
+        }
+
+        // Generate TTML content from subtitles array
+        function generateTTMLContent() {
+            let ttmlData = `<?xml version="1.0" encoding="UTF-8"?>
+    <tt xmlns="http://www.w3.org/ns/ttml" xml:lang="${ttmlMetadata.language || ''}">
+        <head>
+            <styling>\n`;
+
+            ttmlMetadata.styles.forEach(style => {
+                ttmlData += `                <style`;
+                for (const [key, value] of Object.entries(style)) {
+                    ttmlData += ` ${key}="${value}"`;
+                }
+                ttmlData += ` />\n`;
+            });
+
+            ttmlData += `            </styling>
+            <layout>\n`;
+
+            ttmlMetadata.regions.forEach(region => {
+                ttmlData += `                <region`;
+                for (const [key, value] of Object.entries(region)) {
+                    ttmlData += ` ${key}="${value}"`;
+                }
+                ttmlData += ` />\n`;
+            });
+
+            ttmlData += `            </layout>
+        </head>
+        <body>
+            <div>\n`;
+
+            subtitles.forEach(subtitle => {
+                const attrs = [];
+                if (subtitle.startTime) attrs.push(`begin="${subtitle.startTime}"`);
+                if (subtitle.endTime) attrs.push(`end="${subtitle.endTime}"`);
+                if (subtitle.duration) attrs.push(`dur="${subtitle.duration}"`);
+                if (subtitle.styleId) attrs.push(`style="${subtitle.styleId}"`);
+                if (subtitle.regionId) attrs.push(`region="${subtitle.regionId}"`);
+                if (subtitle.language) attrs.push(`xml:lang="${subtitle.language}"`);
+                for (const [key, value] of Object.entries(subtitle.additionalAttributes || {})) {
+                    attrs.push(`${key}="${value}"`);
+                }
+                ttmlData += `                <p ${attrs.join(' ')}>${subtitle.text}</p>\n`;
+            });
+
+            ttmlData += `            </div>
+        </body>
+    </tt>`;
+            return ttmlData;
+        }
+
+        // Generate VTT content from subtitles array for saving
+        function generateVTTFileContent() {
+            let vttData = 'WEBVTT\n\n';
+            subtitles.forEach(subtitle => {
+                let cueSettings = '';
+                if (subtitle.line) cueSettings += ` line:${subtitle.line}`;
+                if (subtitle.position) cueSettings += ` position:${subtitle.position}`;
+                if (subtitle.align) cueSettings += ` align:${subtitle.align}`;
+
+                vttData += `${subtitle.startTime} --> ${subtitle.endTime}${cueSettings}\n`;
+                vttData += `${subtitle.text}\n\n`;
+            });
+            return vttData;
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', function(event) {
+            if (event.target.tagName.toLowerCase() !== 'input' && event.target.contentEditable !== 'true') { // Avoid interfering with input fields and contentEditable elements
+                switch(event.key) {
+                    case 'ArrowUp':
+                        event.preventDefault();
+                        stepFrame(1);
+                        break;
+                    case 'ArrowDown':
+                        event.preventDefault();
+                        stepFrame(-1);
+                        break;
+                    case 'ArrowRight':
+                        event.preventDefault();
+                        video.currentTime += 1;
+                        break;
+                    case 'ArrowLeft':
+                        event.preventDefault();
+                        video.currentTime -= 1;
+                        break;
+                    case ' ':
+                        event.preventDefault();
+                        if(video.paused) {
+                            video.play();
+                        } else {
+                            video.pause();
+                        }
+                        break;
+                }
+            }
+        });
+
+        function stepFrame(frameCount) {
+            const fps = parseInt(frameRateInput.value) || 25; // Get frame rate from input
+            const currentTime = video.currentTime;
+            const newTime = currentTime + (frameCount / fps);
+
+            // Check for boundaries
+            if (newTime >= 0 && newTime <= video.duration) {
+                video.currentTime = newTime;
+            }
+        }
+
+        // Find and Replace Functionality
+        findTextInput.addEventListener('input', function() {
+            performFind();
+        });
+
+        function performFind() {
+            clearFindHighlights();
+            const searchText = findTextInput.value.trim();
+            if (!searchText) return;
+
+            let count = 0;
+            const regex = new RegExp(escapeRegExp(searchText), 'gi');
+
+            subtitles.forEach((subtitle, index) => {
+                const row = subtitleTableBody.querySelector(`tr[data-index="${index}"]`);
+                
+                if (row && regex.test(subtitle.text)) {
+                    // Set index for TEXT column based on format
+                    const textCellIndex = subtitleFormat === 'srt' ? 3 : 3; // 3 for both SRT and VTT after adding NO column
+
+                    // Ensure we only target the TEXT column for highlighting
+                    const textCell = row.cells[textCellIndex];
+                    
+                    if (textCell) {
+                        // Highlight matched text within the TEXT column only
+                        textCell.innerHTML = subtitle.text.replace(regex, match => `<span class="highlight">${match}</span>`);
+                    }
+
+                    count++;
+                }
+            });
+
+            findCountDisplay.textContent = `Found: ${count}`;
+        }
+
+
+function clearFindHighlights() {
+    const rows = subtitleTableBody.querySelectorAll('tr');
+    rows.forEach(row => {
+        const textCellIndex = subtitleFormat === 'srt' ? 3 : 2; // TEXT column index
+        const textCell = row.cells[textCellIndex];
+
+        if (textCell) {
+            const index = parseInt(row.dataset.index);
+            console.log(`Resetting TEXT column at index ${index}`);
+            textCell.innerHTML = subtitles[index].text;
+        }
+    });
+    findCountDisplay.textContent = '';
+}
+
+
+
+        replaceButton.addEventListener('click', function() {
+            previousSubtitles = JSON.parse(JSON.stringify(subtitles)); // Deep copy for undo
+            clearFindHighlights();
+            const searchText = findTextInput.value.trim();
+            const replaceText = replaceTextInput.value;
+            if (!searchText) return;
+            let count = 0;
+            const regex = new RegExp(escapeRegExp(searchText), 'gi');
+            subtitles.forEach((subtitle, index) => {
+                if (regex.test(subtitle.text)) {
+                    subtitle.text = subtitle.text.replace(regex, replaceText);
+                    const row = subtitleTableBody.querySelector(`tr[data-index="${index}"]`);
+                    if (row) {
+                        const textCell = row.cells[subtitleFormat === 'srt' ? 3 : 3]; // Adjust index if needed
+                        textCell.innerHTML = subtitle.text;
+                    }
+                    count++;
+                }
+            });
+            updateSubtitleTrack();
+            findCountDisplay.textContent = `Replaced: ${count}`;
+            findTextInput.value = '';
+            replaceTextInput.value = '';
+        });
+
+        undoButton.addEventListener('click', function() {
+            if (previousSubtitles.length > 0) {
+                subtitles = JSON.parse(JSON.stringify(previousSubtitles)); // Restore subtitles
+                updateSubtitleEditor();
+                updateSubtitleTrack();
+                previousSubtitles = [];
+                findCountDisplay.textContent = 'Undo completed.';
+            } else {
+                alert('Nothing to undo.');
+            }
+        });
+
+        function clearFindHighlights() {
+            const rows = subtitleTableBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const textCell = row.cells[subtitleFormat === 'srt' ? 3 : 3]; // Adjust index if needed
+                if (textCell) {
+                    textCell.innerHTML = subtitles[row.dataset.index].text;
+                }
+            });
+            findCountDisplay.textContent = '';
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Adjust Hour Functionality
+        adjustHourMinusButton.addEventListener('click', function() {
+            adjustSubtitlesHour(-1); // Subtract one hour
+        });
+
+        adjustHourPlusButton.addEventListener('click', function() {
+            adjustSubtitlesHour(1); // Add one hour
+        });
+
+        function adjustSubtitlesHour(hourOffset) {
+            previousSubtitles = JSON.parse(JSON.stringify(subtitles)); // Deep copy for undo
+            subtitles.forEach(subtitle => {
+                if (subtitle.startTime) {
+                    const newStartTime = adjustHourInTimecode(subtitle.startTime, hourOffset);
+                    subtitle.startTime = newStartTime;
+                }
+                if (subtitle.endTime) {
+                    const newEndTime = adjustHourInTimecode(subtitle.endTime, hourOffset);
+                    subtitle.endTime = newEndTime;
+                }
+            });
+            updateSubtitleEditor();
+            updateSubtitleTrack();
+        }
+
+        function adjustHourInTimecode(timecode, hourOffset) {
+            const parts = timecode.split(':');
+            if (parts.length >= 3) {
+                let hours = parseInt(parts[0]);
+                hours += hourOffset;
+                if (hours < 0) hours = 0;
+                parts[0] = pad(hours);
+                return parts.join(':');
+            }
+            return timecode;
+        }
+    </script>
+
+</body>
+</html>
