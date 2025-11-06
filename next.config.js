@@ -5,8 +5,6 @@ const nextConfig = {
     typedRoutes: true
   },
   output: 'export',
-  basePath: '/ppantoja/subtitleplayer',
-  assetPrefix: '/ppantoja/subtitleplayer',
   trailingSlash: true
 };
 
